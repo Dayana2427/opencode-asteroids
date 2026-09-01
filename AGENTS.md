@@ -28,3 +28,8 @@ hosts a fixed 800x600 `<canvas>` and loads `game.js`.
   one (currently only `'speed'`, which doubles ship thrust for
   `POWERUP_SPEED_DURATION` seconds). Handled by the `PowerUp` class and the
   `powerups` array; visual feedback via cyan ship tint and a HUD timer.
+- Shooting star ("estrella fugaz"): fast golden entity (`ShootingStar` class,
+  `shootingStars` array) that spawns periodically every
+  `STAR_SPAWN_MIN`–`STAR_SPAWN_MAX` seconds (max `STAR_MAX_ON_SCREEN` at once),
+  expires on its own via `ttl`, kills the ship on contact, and awards
+  `STAR_POINTS` (no splitting) when shot; power-up drop chance applies to it too.
