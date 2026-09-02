@@ -25,9 +25,12 @@ hosts a fixed 800x600 `<canvas>` and loads `game.js`.
 - Game flow states: `'playing' | 'dead' | 'gameover'` handled in `update()`;
   restarting is bound to Space in the gameover state.
 - Power-ups: destroyed asteroids have a `POWERUP_DROP_CHANCE` chance of dropping
-  one (currently only `'speed'`, which doubles ship thrust for
-  `POWERUP_SPEED_DURATION` seconds). Handled by the `PowerUp` class and the
-  `powerups` array; visual feedback via cyan ship tint and a HUD timer.
+  one (50/50 between `'speed'`, which doubles ship thrust for
+  `POWERUP_SPEED_DURATION` seconds, and `'triple'`, which fires 3 parallel
+  bullets per shot with `TRIPLE_OFFSET` px separation for
+  `POWERUP_TRIPLE_DURATION` seconds). Handled by the `PowerUp` class and the
+  `powerups` array; visual feedback via cyan (speed) / magenta (triple) ship tint
+  and HUD timers.
 - Shooting star ("estrella fugaz"): fast golden entity (`ShootingStar` class,
   `shootingStars` array) that spawns periodically every
   `STAR_SPAWN_MIN`–`STAR_SPAWN_MAX` seconds (max `STAR_MAX_ON_SCREEN` at once),
