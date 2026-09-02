@@ -194,6 +194,7 @@ class Ship {
     this.invincible    = 3;
     this.shootCooldown = 0;
     this.speedBoost    = 0;
+    this.tripleShot    = 0;
     this.dead          = false;
   }
 
@@ -202,6 +203,7 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost    -= dt;
+    if (this.tripleShot    > 0) this.tripleShot    -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = this.speedBoost > 0 ? 520 : 260;  // px/s² (x2 con power-up)
@@ -228,7 +230,12 @@ class Ship {
     const NOSE = SKINS[currentSkin].nose;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
-    return [new Bullet(ox, oy, this.angle)];
+    if (this.tripleShot <= 0) return [new Bullet(ox, oy, this.angle)];
+    // Disparo triple: 3 balas paralelas con offset perpendicular
+    const px = -Math.sin(this.angle);
+    const py =  Math.cos(this.angle);
+    return [-TRIPLE_OFFSET, 0, TRIPLE_OFFSET].map(off =>
+      new Bullet(ox + px * off, oy + py * off, this.angle));
   }
 
   draw() {
@@ -254,6 +261,14 @@ class Ship {
     // Halo cian mientras dura el power-up de velocidad
     if (this.speedBoost > 0) {
       ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+      ctx.lineWidth   = 5;
+      ctx.stroke();
+      ctx.lineWidth   = 1.5;
+    }
+
+    // Halo magenta mientras dura el power-up de disparo triple
+    if (this.tripleShot > 0) {
+      ctx.strokeStyle = 'rgba(255, 0, 255, 0.4)';
       ctx.lineWidth   = 5;
       ctx.stroke();
       ctx.lineWidth   = 1.5;
@@ -310,14 +325,16 @@ class Particle {
 }
 
 // ── Power-up ──────────────────────────────────────────────────────────────────
-const POWERUP_DROP_CHANCE    = 0.15; // probabilidad de drop al destruir un asteroide
-const POWERUP_SPEED_DURATION = 5;    // segundos de efecto "Velocidad"
+const POWERUP_DROP_CHANCE     = 0.15; // probabilidad de drop al destruir un asteroide
+const POWERUP_SPEED_DURATION  = 5;    // segundos de efecto "Velocidad"
+const POWERUP_TRIPLE_DURATION = 5;    // segundos de efecto "Triple"
+const TRIPLE_OFFSET           = 6;    // separación perpendicular entre balas (px)
 
 class PowerUp {
   constructor(x, y) {
     this.x      = x;
     this.y      = y;
-    this.type   = 'speed';
+    this.type   = Math.random() < 0.5 ? 'speed' : 'triple';
     this.radius = 10;
     this.ttl    = 10;
     this.rot    = 0;
@@ -341,7 +358,7 @@ class PowerUp {
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
-    // Rayo (símbolo de velocidad) dentro de un rombo
+    // Rombo contenedor
     ctx.beginPath();
     ctx.moveTo( 0, -12);
     ctx.lineTo( 9,  0);
@@ -350,12 +367,23 @@ class PowerUp {
     ctx.closePath();
     ctx.stroke();
 
-    ctx.beginPath();
-    ctx.moveTo( 1, -5);
-    ctx.lineTo(-2,  0);
-    ctx.lineTo( 1,  0);
-    ctx.lineTo(-1,  5);
-    ctx.stroke();
+    if (this.type === 'speed') {
+      // Rayo (símbolo de velocidad)
+      ctx.beginPath();
+      ctx.moveTo( 1, -5);
+      ctx.lineTo(-2,  0);
+      ctx.lineTo( 1,  0);
+      ctx.lineTo(-1,  5);
+      ctx.stroke();
+    } else {
+      // Tres rayitas paralelas (símbolo de disparo triple)
+      for (const ox of [-4, 0, 4]) {
+        ctx.beginPath();
+        ctx.moveTo(ox, -5);
+        ctx.lineTo(ox,  5);
+        ctx.stroke();
+      }
+    }
 
     ctx.restore();
   }
@@ -597,7 +625,8 @@ function update(dt) {
   for (const p of powerups) {
     if (dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      ship.speedBoost = POWERUP_SPEED_DURATION;
+      if (p.type === 'speed') ship.speedBoost = POWERUP_SPEED_DURATION;
+      else                    ship.tripleShot = POWERUP_TRIPLE_DURATION;
     }
   }
 
@@ -640,6 +669,10 @@ function drawHUD() {
   if (ship.speedBoost > 0) {
     ctx.fillStyle = '#0ff';
     ctx.fillText(`VELOCIDAD ${ship.speedBoost.toFixed(1)}s`, 14, 48);
+  }
+  if (ship.tripleShot > 0) {
+    ctx.fillStyle = '#f0f';
+    ctx.fillText(`TRIPLE ${ship.tripleShot.toFixed(1)}s`, 14, 70);
   }
 
   // Aviso temporal al cambiar de skin
