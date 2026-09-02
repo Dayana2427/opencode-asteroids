@@ -33,3 +33,10 @@ hosts a fixed 800x600 `<canvas>` and loads `game.js`.
   `STAR_SPAWN_MIN`–`STAR_SPAWN_MAX` seconds (max `STAR_MAX_ON_SCREEN` at once),
   expires on its own via `ttl`, kills the ship on contact, and awards
   `STAR_POINTS` (no splitting) when shot; power-up drop chance applies to it too.
+- Skins: the `C` key cycles the ship's appearance (`cycleSkin()`), works in any
+  game state. Skins live in the `SKINS` table (hull `body`, `color`, `nose`
+  offset for bullet spawn, `flame` color and `flameX` anchor for the thruster).
+  Cosmetic only — the hitbox stays at 12; the speed power-up renders as a cyan
+  halo over the hull instead of replacing its color. Selection persists in
+  localStorage (`SKIN_STORAGE_KEY`), with a fallback for missing/invalid values.
+  `drawLifeIcon` reuses the active skin's hull so HUD life icons match.
