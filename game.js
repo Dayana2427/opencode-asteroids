@@ -120,7 +120,8 @@ class Asteroid {
 
 // ── Skins de la nave ──────────────────────────────────────────────────────────
 // Cada skin define casco (body), color, morro (nose) y llama (flame/flameX).
-// Solo cambia la apariencia: la hitbox de la nave es siempre la misma.
+// `scale` agranda casco, llama, hitbox y efectos; `pointsMultiplier` multiplica
+// los puntos obtenidos. Ambos opcionales (1 por defecto).
 const SKINS = [
   {
     name: 'CLÁSICA',
@@ -162,6 +163,16 @@ const SKINS = [
     flame: 'rgba(255, 100, 255, 0.9)',
     flameX: 12,
   },
+  {
+    name: 'GIGANTE',
+    color: '#00ff7f',
+    body: [[21, 0], [-1, -11], [-13, -8], [-13, 8], [-1, 11]],
+    nose: 22,
+    flame: 'rgba(0, 255, 120, 0.85)',
+    flameX: 9,
+    scale: 2,
+    pointsMultiplier: 2,
+  },
 ];
 
 const SKIN_STORAGE_KEY = 'asteroids-skin';
@@ -179,9 +190,17 @@ function cycleSkin() {
   skinNoticeTimer = 1.5;
 }
 
+// Escala del skin activo (la GIGANTE es el doble de la nave original)
+function skinScale() {
+  return SKINS[currentSkin].scale || 1;
+}
+
 // ── Ship ──────────────────────────────────────────────────────────────────────
 class Ship {
   constructor() { this.reset(); }
+
+  // La hitbox escala con el skin activo (la GIGANTE es el doble de grande)
+  get radius() { return 12 * skinScale(); }
 
   reset() {
     this.x      = W / 2;
@@ -189,7 +208,6 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -229,7 +247,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = SKINS[currentSkin].nose;
+    const NOSE = SKINS[currentSkin].nose * skinScale();
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.tripleShot <= 0) return [new Bullet(ox, oy, this.angle)];
@@ -245,13 +263,17 @@ class Ship {
     // Parpadeo durante invencibilidad de reaparición
     if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
 
-    const skin = SKINS[currentSkin];
+    const skin  = SKINS[currentSkin];
+    const SCALE = skinScale();
 
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
+
+    // La escala del skin agranda casco y llama (grosor de línea constante)
+    ctx.scale(SCALE, SCALE);
+    ctx.lineWidth = 1.5 / SCALE;
 
     // Casco según el skin activo
     ctx.beginPath();
@@ -263,17 +285,17 @@ class Ship {
     // Halo cian mientras dura el power-up de velocidad
     if (this.speedBoost > 0) {
       ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
-      ctx.lineWidth   = 5;
+      ctx.lineWidth   = 5 / SCALE;
       ctx.stroke();
-      ctx.lineWidth   = 1.5;
+      ctx.lineWidth   = 1.5 / SCALE;
     }
 
     // Halo magenta mientras dura el power-up de disparo triple
     if (this.tripleShot > 0) {
       ctx.strokeStyle = 'rgba(255, 0, 255, 0.4)';
-      ctx.lineWidth   = 5;
+      ctx.lineWidth   = 5 / SCALE;
       ctx.stroke();
-      ctx.lineWidth   = 1.5;
+      ctx.lineWidth   = 1.5 / SCALE;
     }
 
     ctx.strokeStyle = skin.color;
@@ -290,13 +312,17 @@ class Ship {
       ctx.stroke();
     }
 
-    // Anillo de escudo: verde pulsante, parpadea al terminar
+    // Volver a escala 1 antes de efectos de radio absoluto
+    ctx.scale(1 / SCALE, 1 / SCALE);
+    ctx.lineWidth = 1.5;
+
+    // Anillo de escudo: verde pulsante, parpadea al terminar (escala con el skin)
     if (this.shield > 0 && !(this.shield < 2 && Math.floor(this.shield * 6) % 2 === 0)) {
       const pulse = 0.45 + 0.3 * Math.sin(performance.now() / 120);
       ctx.strokeStyle = `rgba(0, 255, 128, ${pulse.toFixed(2)})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(0, 0, SHIELD_RADIUS, 0, Math.PI * 2);
+      ctx.arc(0, 0, SHIELD_RADIUS * SCALE, 0, Math.PI * 2);
       ctx.stroke();
     }
 
@@ -537,6 +563,11 @@ function dropPowerUp(x, y) {
     powerups.push(new PowerUp(x, y, ['speed', 'triple', 'shield'][Math.floor(Math.random() * 3)]));
 }
 
+// Los puntos se multiplican según el skin activo (la GIGANTE otorga el doble)
+function addPoints(base) {
+  score += base * (SKINS[currentSkin].pointsMultiplier || 1);
+}
+
 function killShip() {
   explode(ship.x, ship.y, 14);
   ship.dead = true;
@@ -605,7 +636,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        addPoints(POINTS[a.size]);
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         dropPowerUp(a.x, a.y);
@@ -621,7 +652,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += STAR_POINTS;
+        addPoints(STAR_POINTS);
         explode(s.x, s.y, 10);
         dropPowerUp(s.x, s.y);
       }
@@ -634,18 +665,18 @@ function update(dt) {
   if (ship.shield > 0) {
     // El escudo vaporiza la amenaza (sin dividirla) y sigue activo
     for (const a of asteroids) {
-      if (!a.dead && dist(ship, a) < SHIELD_RADIUS + a.radius * 0.82) {
+      if (!a.dead && dist(ship, a) < SHIELD_RADIUS * skinScale() + a.radius * 0.82) {
         a.dead = true;
-        score += POINTS[a.size];
+        addPoints(POINTS[a.size]);
         explode(a.x, a.y, a.size * 5);
         dropPowerUp(a.x, a.y);
       }
     }
     asteroids = asteroids.filter(a => !a.dead);
     for (const s of shootingStars) {
-      if (!s.dead && dist(ship, s) < SHIELD_RADIUS + s.radius * 0.82) {
+      if (!s.dead && dist(ship, s) < SHIELD_RADIUS * skinScale() + s.radius * 0.82) {
         s.dead = true;
-        score += STAR_POINTS;
+        addPoints(STAR_POINTS);
         explode(s.x, s.y, 10);
         dropPowerUp(s.x, s.y);
       }
@@ -686,12 +717,13 @@ function update(dt) {
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawLifeIcon(x, y) {
   const skin = SKINS[currentSkin];
+  const ICON_SCALE = 0.45 * skinScale();
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.scale(0.45, 0.45);
+  ctx.scale(ICON_SCALE, ICON_SCALE);
   ctx.strokeStyle = skin.color;
-  ctx.lineWidth   = 1.2 / 0.45;
+  ctx.lineWidth   = 1.2 / ICON_SCALE;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
   ctx.moveTo(skin.body[0][0], skin.body[0][1]);
@@ -713,7 +745,7 @@ function drawHUD() {
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
 
   for (let i = 0; i < lives; i++)
-    drawLifeIcon(W - 16 - i * 22, 18);
+    drawLifeIcon(W - 16 - i * 22 * skinScale(), 18);
 
   ctx.textAlign = 'left';
   let statusY = 48;
