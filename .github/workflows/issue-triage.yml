@@ -1,0 +1,88 @@
+name: Triage de issues
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      issues: write
+      contents: read
+    steps:
+      - name: Verificar si el issue ya fue procesado
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            return !body.includes('Información de triage');
+          result-encoding: string
+
+      - name: Checkout repository
+        if: steps.check.outputs.result == 'true'
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run opencode
+        if: steps.check.outputs.result == 'true'
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode-go/glm-5.3-flash
+          prompt: |
+            Eres el agente de triage automático de este repositorio: un clon de
+            Asteroids en HTML5 con toda la lógica en game.js (JavaScript vanilla,
+            sin dependencias) y index.html (canvas fijo de 800x600).
+
+            Se acaba de crear un issue y debes enriquecerlo para facilitar su
+            revisión. Sigue estas reglas al pie de la letra:
+
+            1. Lee el issue (número, título y body) con `gh issue view`. El texto
+               original del body es SAGRADO: no lo modifiques, no lo reordenes,
+               no lo traduzcas, no lo resumas, no borres nada y no corrijas
+               errores tipográficos.
+
+            2. Obtén el body actual exacto con
+               `gh issue view <número> --json body --jq .body`, escribe un
+               archivo temporal con ese contenido MÁS la nueva sección del
+               punto 3, y actualiza el issue con
+               `gh issue edit <número> --body-file <archivo>`. Usa siempre un
+               archivo, nunca texto inline.
+
+            3. La nueva sección se añade SOLO AL FINAL del body, precedida de
+               un separador horizontal `---`, y tiene exactamente este formato:
+
+               ## 📋 Información de triage (generada automáticamente)
+
+               - **Resumen:** <1-2 frases en español describiendo qué se reporta o solicita>
+               - **Archivos relevantes:** <rutas de los archivos del repo implicados (normalmente game.js y/o index.html) y por qué>
+               - **Posibles causas / dónde implementar:** <si es un bug, apunta a las clases, funciones o constantes de game.js posiblemente implicadas; si es una mejora, dónde tendría sentido implementarla>
+               - **Prioridad estimada:** <alta | media | baja, con justificación breve>
+               - **Pasos para verificar:** <cómo reproducir o comprobar el issue en el juego>
+
+            4. Etiquetas: solo puedes usar estas etiquetas y ninguna más:
+               - bug (color d73a4a) — algo roto o que funciona mal
+               - enhancement (color a2eeef) — mejora o nueva funcionalidad
+               - question (color d876e3) — duda o consulta
+               - documentation (color 0075ca) — relativo a documentación
+               - prioridad-alta (color b60205) — afecta jugabilidad o bloquea
+               - prioridad-baja (color 0e8a16) — cosmético u opcional
+
+               Crea las que necesites con
+               `gh label create <nombre> --color <color> --description "<descripción en español>" --force`
+               y aplica las que correspondan (mínimo 1, máximo 3) con
+               `gh issue edit <número> --add-label "<nombre>"`. Combina una
+               etiqueta de tipo (bug/enhancement/question/documentation) con
+               una de prioridad (prioridad-alta/prioridad-baja) cuando tenga
+               sentido.
+
+            5. Todo el texto que generes debe estar en español.
+
+            6. No hagas commits, no abras pull requests y no modifiques ningún
+               archivo del repositorio: tu única tarea es editar el issue.
