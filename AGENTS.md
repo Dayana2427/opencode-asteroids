@@ -44,7 +44,12 @@ hosts a fixed 800x600 `<canvas>` and loads `game.js`.
 - Skins: the `C` key cycles the ship's appearance (`cycleSkin()`), works in any
   game state. Skins live in the `SKINS` table (hull `body`, `color`, `nose`
   offset for bullet spawn, `flame` color and `flameX` anchor for the thruster).
-  Cosmetic only — the hitbox stays at 12; power-ups render as colored halos
+  Optional per-skin fields: `scale` (default 1, via `skinScale()`) scales the
+  hull/flame rendering, bullet-spawn nose, shield-ring radius, HUD life icons
+  and the ship hitbox (`12 × scale`); `pointsMultiplier` (default 1) multiplies
+  every score gain via the `addPoints()` helper. Power-ups render as colored halos
   (cyan/magenta) over the hull instead of replacing its color. Selection persists in
   localStorage (`SKIN_STORAGE_KEY`), with a fallback for missing/invalid values.
-  `drawLifeIcon` reuses the active skin's hull so HUD life icons match.
+  `drawLifeIcon` reuses the active skin's hull so HUD life icons match. The
+  `GIGANTE` skin is green and twice the size of the original hull (`scale: 2`),
+  awarding double points (`pointsMultiplier: 2`).
